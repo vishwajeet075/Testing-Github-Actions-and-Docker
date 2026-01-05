@@ -1,0 +1,42 @@
+name: CD pipeline
+
+on:
+  workflow_run:
+    workflows: ["CI pipeline"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Pull and Deploy Docker image
+        run: |
+          docker pull small_python_app:Latest
+          docker run small_python_app:Latest
+          # verify container started
+          if ! docker ps --filter "ancestor=small_python_app:Latest" --filter "status=running" --format '{{.ID}}' | grep -q .; then
+            echo "Container failed to start" >&2
+            exit 1
+          fi
+      
+      - name: Calling the health endpoint
+        run: |
+          sleep 10  # wait for the app to start
+          RESPONSE=$(curl --write-out "%{http_code}" --silent --output /dev/null http://localhost:8501/health)
+          if [ "$RESPONSE" -ne 200 ]; then
+            echo "Health check failed with status code $RESPONSE" >&2
+            exit 1
+          else
+            echo "Health check passed with status code $RESPONSE"
+          fi
