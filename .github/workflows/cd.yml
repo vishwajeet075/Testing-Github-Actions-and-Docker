@@ -23,9 +23,10 @@ jobs:
       - name: Pull and Deploy Docker image
         run: |
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/small_python_app:Latest
-          docker run ${{ secrets.DOCKER_HUB_USERNAME }}/small_python_app:Latest
+          docker run -d -p 8501:8501 --name small_python_app \
+          ${{ secrets.DOCKER_HUB_USERNAME }}/small_python_app:Latest
           # verify container started
-          if ! docker ps --filter "ancestor=small_python_app:Latest" --filter "status=running" --format '{{.ID}}' | grep -q .; then
+          if ! docker ps --filter "ancestor=${{ secrets.DOCKER_HUB_USERNAME }}/small_python_app:Latest" --filter "status=running" --format '{{.ID}}' | grep -q .; then
             echo "Container failed to start" >&2
             exit 1
           fi
